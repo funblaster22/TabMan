@@ -147,7 +147,7 @@ function validateCommand(command, text, checkCompleteness = false) {
                 } else {
                     result.valid = cmdArg.value.includes(userToken);
                 }
-                if (!result.valid) result.help = "ERROR: Unknown " + cmdArg.name;
+                if (!result.valid) result.help = "ERROR: unknown " + cmdArg.name;
                 break;
         }
         
@@ -208,6 +208,9 @@ function constructSuggestion(text, parsedCommand) {
 chrome.omnibox.onInputChanged.addListener((text, suggest) => {
     const bestCommands = findBestCommands(text);
     const suggestions = bestCommands.map(cmd => constructSuggestion(text, cmd));
+    if (bestCommands[0].lastCorrectIdx === -1) {
+        suggestions.unshift({ content: " ", description: "<dim>ERROR: unknown command</dim>" });
+    }
     if (bestCommands.length === 1) {
         suggestions.push(...bestCommands[0].suggestions.map(suggestion => ({ content: suggestions[0].content + suggestion, description: suggestion })));
     }
