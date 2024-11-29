@@ -1,5 +1,3 @@
-import {COLORS} from "./constants.js";
-
 export async function bookmarkRoot() {
     const otherBookmarksId = (await chrome.bookmarks.getChildren('0'))[1].id;
     return findOrCreateBookmark(otherBookmarksId, "TimeMan");
@@ -7,13 +5,6 @@ export async function bookmarkRoot() {
 
 export async function allProjects() {
     return (await chrome.bookmarks.getChildren(await bookmarkRoot())).map(folder => folder.title);
-}
-
-export async function availableColors() {
-    const groups = await chrome.tabGroups.query({});
-    const usedColors = new Set(groups.map(group => group.color));
-    const unusedColors = COLORS.filter(color => !usedColors.has(color));
-    return unusedColors;
 }
 
 export async function closeProject(color, forever = false) {

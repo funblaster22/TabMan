@@ -1,5 +1,6 @@
 import {COLORS} from "./constants.js";
-import {allProjects, availableColors, reopenProject, closeProject} from "./bookmarkManager.js";
+import {allProjects, reopenProject, closeProject} from "./bookmarkManager.js";
+import {availableColors} from "./tabGroupManager.js";
 
 /*
 omnibox shortcuts

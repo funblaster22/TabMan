@@ -1,11 +1,5 @@
 import "./omnibox.js";
-
-chrome.commands.onCommand.addListener((command) => {
-    console.log(command);
-  if (command === "new-tab") {
-    chrome.tabs.create({ url: "chrome://newtab" });
-  }
-});
+import "./tabManager.js";
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   // Check if the tab's URL is starting to load, and if it matches google.com
