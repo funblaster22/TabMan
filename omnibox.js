@@ -1,4 +1,5 @@
 import {COLORS} from "./constants.js";
+import {allProjects, availableColors, reopenProject, closeProject} from "./bookmarkManager.js";
 
 /*
 omnibox shortcuts
@@ -12,6 +13,7 @@ recov: (mapped to searching too) Opens the page with tabs and groups that have b
 */
 
 const projects = [];
+const unusedColors = [];
 
 const CMD_TYP = {
     CMD: "cmd",
@@ -37,11 +39,18 @@ const commands = [
       type: CMD_TYP.CMD,
       value: "open",
       help: "opens an archived project",
+      callback: args => reopenProject(args[0]),
     },
     {
       type: CMD_TYP.OPTION,
       value: projects,
       name: "projects",
+    },
+    {
+      type: CMD_TYP.OPTION,
+      value: unusedColors,
+      name: "color",
+      optional: true,
     },
   ],
   [
@@ -49,6 +58,7 @@ const commands = [
       type: CMD_TYP.CMD,
       value: "close",
       help: 'close this project',
+      callback: args => closeProject(args[0] === "forever"),
     },
     {
       type: CMD_TYP.LITERAL,
@@ -96,7 +106,7 @@ const commands = [
     },
     {
       type: CMD_TYP.OPTION,
-      value: COLORS,
+      value: unusedColors,
       name: "color",
       optional: true,
     },
@@ -219,5 +229,6 @@ chrome.omnibox.onInputChanged.addListener((text, suggest) => {
 });
 
 chrome.omnibox.onInputStarted.addListener(() => {
-    // TODO: fetchProjects.then(res => projects.push(...res));
+    allProjects().then(res => projects.push(...res));
+    availableColors().then(res => unusedColors.push(...res));
 })

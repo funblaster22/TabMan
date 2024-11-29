@@ -3,11 +3,16 @@
   "name": "TabMan",
   "version": "1.0",
   "description": "Press a shortcut to open a new tab.",
+  "icons": {
+    "128": "icon.jpg"
+  },
   "permissions": [
     "tabs",
-    "storage"
-   ],
-   "omnibox": { "keyword" : "l" },
+    "tabGroups",
+    "notifications",
+    "bookmarks"
+  ],
+  "omnibox": { "keyword" : "l" },
   "background": {
     "service_worker": "background.js",
     "type": "module"
