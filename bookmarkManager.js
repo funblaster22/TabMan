@@ -1,6 +1,6 @@
 export async function bookmarkRoot() {
     const otherBookmarksId = (await chrome.bookmarks.getChildren('0'))[1].id;
-    return findOrCreateBookmark(otherBookmarksId, "TimeMan");
+    return findOrCreateBookmark(otherBookmarksId, "TabMan");
 }
 
 export async function allProjects() {
