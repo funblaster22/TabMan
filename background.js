@@ -1,5 +1,6 @@
 import "./omnibox.js";
 import "./tabManager.js";
+import "./tabGroupManager.js";
 import "./windowsManager.js";
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
