@@ -18,6 +18,9 @@ async function enforceSingleOpen(group) {
             .filter(g => g.id !== group.id && !g.collapsed)
             .map(g => chrome.tabGroups.update(g.id, { collapsed: true }))
         );
+        
+        const groupedTabs = await chrome.tabs.query({ groupId: group.id });
+        await chrome.tabs.update(groupedTabs[0].id, {active: true});
     } catch(err) {
         console.log(err, "retrying...");
         setTimeout(enforceSingleOpen.bind(this, group), 100);
