@@ -10,7 +10,9 @@
     "tabs",
     "tabGroups",
     "notifications",
-    "bookmarks"
+    "bookmarks",
+    "storage",
+    "system.display"
   ],
   "omnibox": { "keyword" : "l" },
   "background": {
