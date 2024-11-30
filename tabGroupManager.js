@@ -57,7 +57,7 @@ async function reorderGroups(group) {
 }
 
 // Ungrouped tabs are at the end
-async function reorderTabs(_tabId, moveInfo) {
+export async function reorderTabs(_tabId, moveInfo) {
   const ungroupedTabs = await chrome.tabs.query({
       windowId: moveInfo.windowId,
       groupId: chrome.tabGroups.TAB_GROUP_ID_NONE,

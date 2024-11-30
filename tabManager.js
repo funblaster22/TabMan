@@ -1,4 +1,5 @@
 import {TAB_LEVEL, NEWTAB_URL} from "./constants.js";
+import {reorderTabs} from "./tabGroupManager.js";
 
 /*
 - Press control T once to create a new tab in the current task
@@ -20,7 +21,7 @@ async function tabState() {
     const isUngrouped = tab.groupId === -1;
     if (isUngrouped) {
         level = TAB_LEVEL.UNGROUPED;
-    } else if (tab.url !== NEWTAB_URL) {
+    } else if ((tab.pendingUrl || tab.url) !== NEWTAB_URL) {
         level = TAB_LEVEL.REGULAR;
     } else {
         const siblingCount = (await chrome.tabs.query({ groupId: tab.groupId })).length;
@@ -34,24 +35,24 @@ async function tabState() {
 }
 
 chrome.commands.onCommand.addListener(async (command) => {
-    console.log(command);
-    if (command === "new-tab") {
-        const state = await tabState();
-        if (state.level === TAB_LEVEL.UNGROUPED || state.level === TAB_LEVEL.REGULAR) {
-            state.tab = await chrome.tabs.create({ url: NEWTAB_URL, index: state.tab.index + 1 });
-        }
-        switch (state.level) {
-            case TAB_LEVEL.UNGROUPED: break;
-            case TAB_LEVEL.REGULAR:
-                await chrome.tabs.group({ tabIds: state.tab.id, groupId: state.group.id });
-                break;
-            case TAB_LEVEL.NEW:
-                const newGroup = await chrome.tabs.group({ tabIds: state.tab.id });
-                await chrome.tabGroups.update(newGroup, { title: state.group.title, color: state.group.color });
-                break;
-            case TAB_LEVEL.NEW_SOLO:
-                await chrome.tabs.ungroup(state.tab.id);
-                break;
-        }
+    if (command !== "new-tab") return;
+    
+    const state = await tabState();
+    if (state.level === TAB_LEVEL.UNGROUPED || state.level === TAB_LEVEL.REGULAR) {
+        state.tab = await chrome.tabs.create({ url: NEWTAB_URL, index: state.tab.index + 1 });
+    }
+    switch (state.level) {
+        case TAB_LEVEL.UNGROUPED: break;
+        case TAB_LEVEL.REGULAR:
+            await chrome.tabs.group({ tabIds: state.tab.id, groupId: state.group.id });
+            break;
+        case TAB_LEVEL.NEW:
+            const newGroup = await chrome.tabs.group({ tabIds: state.tab.id });
+            await chrome.tabGroups.update(newGroup, { title: state.group.title, color: state.group.color });
+            break;
+        case TAB_LEVEL.NEW_SOLO:
+            await chrome.tabs.ungroup(state.tab.id);
+            await reorderTabs(undefined, state.tab);
+            break;
     }
 });
