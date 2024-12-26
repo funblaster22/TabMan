@@ -1,4 +1,4 @@
-export const COLORS = [
+export const COLORS = /** @type {const} */ [
     "grey",
     "blue",
     "red",
