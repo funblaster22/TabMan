@@ -15,7 +15,7 @@ const getPrimaryDisplayWindow = async () => {
   const primaryDisplay = displays.find((d) => d.isPrimary);
   if (!primaryDisplay) throw new Error("Primary display not found.");
 
-  const windows = await chrome.windows.getAll({ populate: true });
+  const windows = await chrome.windows.getAll({populate: true});
 
   return windows.find((win) => isWindowWithinBounds(win, primaryDisplay.bounds));
 };
@@ -23,15 +23,15 @@ const getPrimaryDisplayWindow = async () => {
 // Move all tabs and groups to the specified window
 const moveToTargetWindow = async (sourceWindowId, targetWindowId) => {
   // Move tab groups
-  const groups = await chrome.tabGroups.query({ windowId: sourceWindowId });
+  const groups = await chrome.tabGroups.query({windowId: sourceWindowId});
   for (const group of groups) {
-    await chrome.tabGroups.move(group.id, { windowId: targetWindowId });
+    await chrome.tabGroups.move(group.id, {windowId: targetWindowId});
   }
 
   // Move individual tabs
-  const tabs = await chrome.tabs.query({ windowId: sourceWindowId });
+  const tabs = await chrome.tabs.query({windowId: sourceWindowId});
   for (const tab of tabs) {
-    await chrome.tabs.move(tab.id, { windowId: targetWindowId, index: -1 });
+    await chrome.tabs.move(tab.id, {windowId: targetWindowId, index: -1});
   }
 };
 
@@ -54,7 +54,7 @@ const onWindowMoved = async (window) => {
   }
 
   // Store the window-to-display association
-  const association = { [window.id]: displayId };
+  const association = {[window.id]: displayId};
   await chrome.storage.session.set(association);
   console.log(`Stored association: Window ${window.id} -> Display ${displayId}`);
 };
