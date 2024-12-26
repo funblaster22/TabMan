@@ -5,6 +5,11 @@ import {reorderTabs} from "./tabGroupManager.js";
 - Press control T once to create a new tab in the current task
 - Press control T twice to create a new task in the current project
 - Press control T thrice to make uncategorized tab
+
+TODO:
+- Press in context of ungrouped tab to make new group
+- focus left tab when closed
+- when tab detached, should create group of same name
 */
 
 async function getCurrentTab() {
@@ -34,8 +39,14 @@ async function tabState() {
     };
 }
 
+// TODO: sometimes opens too many tabs.
+const newtabQueueCount = 0;
 chrome.commands.onCommand.addListener(async (command) => {
     if (command !== "new-tab") return;
+    
+    // TODO: would this be faster if I listen to new tab events?
+    const benchName = "new tab " + new Date().getMilliseconds();
+    console.time(benchName);
     
     const state = await tabState();
     if (state.level === TAB_LEVEL.UNGROUPED || state.level === TAB_LEVEL.REGULAR) {
@@ -55,4 +66,5 @@ chrome.commands.onCommand.addListener(async (command) => {
             await reorderTabs(undefined, state.tab);
             break;
     }
+    console.timeEnd(benchName);
 });
