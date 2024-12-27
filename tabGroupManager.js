@@ -98,28 +98,43 @@ export async function reorderTabs(_tabId, moveInfo) {
  * @return {(...args: [T]) => void} callback with wrappers applied
  */
 function resilientAsyncDebounceSkipper(callback, timeout = 100) {
-  let timeoutRef = undefined;
-  // Skip every other move event (1st user-triggered, 2nd programmatic fixing)
-  // proper way would probably be to incr counter for expected ignorable move events, then decr on every event. Resume taking action once = 0
+  const debouncedCallback = debounce(callback, timeout);
   let shouldSkip = false;
 
   function wrappedFn(...args) {
-    if (timeoutRef) {
-      clearTimeout(timeoutRef);
-    }
-    timeoutRef = setTimeout(() => {
-      timeoutRef = undefined;
-      shouldSkip = !shouldSkip;
-      if (!shouldSkip) return;
-      callback(...args).catch(err => {
-        shouldSkip = false;
-        console.log(err, "retrying...");
-        wrappedFn(...args);
-      });
-    }, timeout);
+    shouldSkip = !shouldSkip;
+    if (!shouldSkip) return;
+    debouncedCallback(...args).catch(err => {
+      shouldSkip = false;
+      console.log(err, "retrying...");
+      wrappedFn(...args);
+    });
   }
 
   return wrappedFn;
+}
+
+/**
+ * Creates a debounced function that delays invoking the callback until after timeout milliseconds have elapsed
+ * @template T
+ * @param {(...args: [T]) => Promise<void>} callback function to debounce
+ * @param {number} timeout time in ms to delay
+ * @return {(...args: [T]) => void} debounced function
+ */
+function debounce(callback, timeout) {
+  let timeoutRef = undefined;
+
+  return async function(...args) {
+    if (timeoutRef) {
+      clearTimeout(timeoutRef);
+    }
+
+    await new Promise(res => {
+      timeoutRef = setTimeout(res, timeout);
+    });
+    timeoutRef = undefined;
+    await callback(...args);
+  }
 }
 
 chrome.tabGroups.onMoved.addListener(resilientAsyncDebounceSkipper(reorderGroups));
