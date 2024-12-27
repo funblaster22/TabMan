@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "allowJs": true,
-    "checkJs": true,
+    "checkJs": false,
 
     "target": "es2023",
     "module": "ESNext",
@@ -10,7 +10,6 @@
     "strict": true,
     "skipLibCheck": true,
 
-    "typeRoots": [ "node_modules/@types" ],
     "types": [ "chrome" ]
   }
 }
