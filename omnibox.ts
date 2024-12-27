@@ -11,19 +11,50 @@ color <color>: change the color of this project
 emoji <emoji>: change the emoji of this project
 new <name> <emoji> <color?>: create a new project
 recov: (mapped to searching too) Opens the page with tabs and groups that have been auto-closed from the current project
+
+TODO:
+task <name>: create a new task in the current project from selected tabs
+close <"right">: close all tabs to the right of the current tab w/i current project
 */
 
-const projects = [];
-const unusedColors = [];
+const projects: string[] = [];
+const unusedColors: ColorEnum[] = [];
 
-const CMD_TYP = {
-  CMD: "cmd",
-  STR: "str",
-  LITERAL: "literal",
-  OPTION: "option",
+const enum CMD_TYP {
+  CMD = "cmd",
+  STR = "str",
+  LITERAL = "literal",
+  OPTION = "option",
 }
 
-const commands = [
+interface LiteralArg {
+  type: CMD_TYP.LITERAL | CMD_TYP.CMD,
+  value: string,
+}
+
+interface OptionArg {
+  type: CMD_TYP.OPTION,
+  value: readonly string[],
+}
+
+interface StringArg {
+  type: CMD_TYP.STR,
+  name: string,
+  value?: never,
+}
+
+type CommandArg = (LiteralArg | OptionArg | StringArg) & {
+  name?: string,
+  optional?: boolean,
+  help?: string,
+  callback?: (args: string[]) => void,
+};
+
+type Command = CommandArg[];
+
+type ParsedCommand = ReturnType<typeof validateCommand>;
+
+const commands: CommandArg[][] = [
   [
     {
       type: CMD_TYP.CMD,
@@ -59,7 +90,7 @@ const commands = [
       type: CMD_TYP.CMD,
       value: "close",
       help: 'close this project',
-      callback: args => closeProject(args[0] === "forever"),
+      callback: args => closeProject("blue", args[0] === "forever"),
     },
     {
       type: CMD_TYP.LITERAL,
@@ -121,12 +152,19 @@ const commands = [
   ],
 ];
 
-function validateCommand(command, text, checkCompleteness = false) {
+/**
+ * TODO docs
+ * @param command
+ * @param text
+ * @param checkCompleteness if enabled, only mark as "valid" if all parameters filled
+ * @return TODO fgh
+ */
+function validateCommand(command: Command, text: string, checkCompleteness = false) {
   const result = {
     command,
     help: command[0].help,
     lastCorrectIdx: -1,
-    suggestions: [],
+    suggestions: [] as string[],
     valid: false,
   };
   const tokenizedText = text.trim().replaceAll(/ +/g, " ").split(" ");
@@ -172,7 +210,13 @@ function validateCommand(command, text, checkCompleteness = false) {
   return result;
 }
 
-function findBestCommands(text, checkCompleteness = false) {
+/**
+ * TODO docs
+ * @param text
+ * @param checkCompleteness
+ * @return
+ */
+function findBestCommands(text: string, checkCompleteness = false) {
   let longestLength = -1;
   let matches = [];
   for (const cmd of commands) {
@@ -188,7 +232,7 @@ function findBestCommands(text, checkCompleteness = false) {
   return matches;
 }
 
-function constructSuggestion(text, parsedCommand) {
+function constructSuggestion(text: string, parsedCommand: ParsedCommand) {
   const prettySignature = parsedCommand.command.map((arg, idx) => {
     let prefix = "";
     let suffix = "";

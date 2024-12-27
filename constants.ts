@@ -1,4 +1,4 @@
-export const COLORS = /** @type {const} */ [
+export const COLORS = [
   "grey",
   "blue",
   "red",
@@ -8,13 +8,13 @@ export const COLORS = /** @type {const} */ [
   "purple",
   "cyan",
   "orange",
-];
+] as const;
 
-export const TAB_LEVEL = {
-  REGULAR: 0,
-  NEW: 1,
-  NEW_SOLO: 2,
-  UNGROUPED: 3,
-};
+export enum TAB_LEVEL {
+  REGULAR = 0,
+  NEW = 1,
+  NEW_SOLO = 2,
+  UNGROUPED = 3,
+}
 
 export const NEWTAB_URL = "chrome://newtab/";

@@ -92,17 +92,19 @@ export async function reorderTabs(_tabId, moveInfo) {
 
 /**
  * Debounce, retry on failure, and skip every other call for async functions
- * @template T
- * @param {(...args: [T]) => Promise<void>} callback function to call
+ * @template {any[]} T
+ * @param {(...args: T) => Promise<void>} callback function to call
  * @param {number} timeout time in ms for debouncing and for retries
- * @return {(...args: [T]) => void} callback with wrappers applied
+ * @return {(...args: T) => void} callback with wrappers applied
  */
 function resilientAsyncDebounceSkipper(callback, timeout = 100) {
+  /** @type {number | undefined} */
   let timeoutRef = undefined;
   // Skip every other move event (1st user-triggered, 2nd programmatic fixing)
   // proper way would probably be to incr counter for expected ignorable move events, then decr on every event. Resume taking action once = 0
   let shouldSkip = false;
 
+  /** @param {T} args */
   function wrappedFn(...args) {
     if (timeoutRef) {
       clearTimeout(timeoutRef);

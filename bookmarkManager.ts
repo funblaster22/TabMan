@@ -1,3 +1,5 @@
+import {availableColors} from "./tabGroupManager.js";
+
 export async function bookmarkRoot() {
   const otherBookmarksId = (await chrome.bookmarks.getChildren('0'))[1].id;
   return findOrCreateBookmark(otherBookmarksId, "TabMan");
@@ -7,7 +9,7 @@ export async function allProjects() {
   return (await chrome.bookmarks.getChildren(await bookmarkRoot())).map(folder => folder.title);
 }
 
-export async function closeProject(color, forever = false) {
+export async function closeProject(color: ColorEnum, forever = false) {
   const folderId = await bookmarkRoot();
   // Fetch all tab groups
   const groups = await chrome.tabGroups.query({color});
@@ -18,7 +20,7 @@ export async function closeProject(color, forever = false) {
 
     if (!forever) {
       // Extract tab group name and split into first-level and second-level parts
-      const [firstWord, ...restWords] = group.title.split(' ');
+      const [firstWord, ...restWords] = group.title!.split(' ');
       const firstLevelFolderName = firstWord || 'Default';
       const secondLevelFolderName = restWords.join(' ') || 'Untitled';
 
@@ -39,17 +41,17 @@ export async function closeProject(color, forever = false) {
       }
     }
 
-    await chrome.tabs.remove(tabs.map(tab => tab.id));
+    await chrome.tabs.remove(tabs.map(tab => tab.id!));
   }
 }
 
-async function findChildNamed(parentId, title) {
+async function findChildNamed(parentId: string, title: string) {
   const children = await chrome.bookmarks.getChildren(parentId);
   return children.find((child) => child.title === title);
 }
 
 // Helper function to find or create a bookmark folder
-async function findOrCreateBookmark(parentId, title) {
+async function findOrCreateBookmark(parentId: string, title: string) {
   const existingFolder = await findChildNamed(parentId, title);
 
   if (existingFolder) {
@@ -61,9 +63,9 @@ async function findOrCreateBookmark(parentId, title) {
   })).id;
 }
 
-async function openInGroup(tabUrls, groupOptions = {}) {
+async function openInGroup(tabUrls: string[], groupOptions = {}) {
   // Open all URLs as new tabs
-  const tabIds = await Promise.all(tabUrls.map(async url => await chrome.tabs.create({url, active: false})));
+  const tabIds = await Promise.all(tabUrls.map(async url => (await chrome.tabs.create({url, active: false})).id!));
 
   // Group the opened tabs
   const groupId = await chrome.tabs.group({tabIds});
@@ -83,19 +85,19 @@ function notifyOpenFailure() {
 }
 
 
-export async function reopenProject(title) {
+export async function reopenProject(title: string) {
   const color = (await availableColors())[0];
   if (color === undefined) {
     notifyOpenFailure();
     return false;
   }
 
-  const existingFolder = await findChildNamed(await bookmarkRoot(), title);  // Non-null, barring errors
+  const existingFolder = (await findChildNamed(await bookmarkRoot(), title))!.id;  // Non-null, barring errors
 
-  const subtree = chrome.bookmarks.getSubTree(existingFolder);
+  const subtree = await chrome.bookmarks.getSubTree(existingFolder);
 
   for (const task of subtree) {
-    await openInGroup(task.children.map(bookmark => bookmark.url), {
+    await openInGroup(task.children!.map(bookmark => bookmark.url!), {
       color,
       title: title + " " + task.title,
     });
