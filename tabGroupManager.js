@@ -131,4 +131,4 @@ chrome.tabGroups.onCreated.addListener(group => {
   reorderGroups(group);
 })
 
-chrome.tabGroups.onUpdated.addListener(enforceSingleOpen);
+chrome.tabGroups.onUpdated.addListener(resilientAsyncDebounceSkipper(enforceSingleOpen, 1000));
