@@ -12,77 +12,69 @@ export async function availableColors() {
 
 /**
  * Only one tab group can be open at a time
- * @function
  * @param {TabGroup} group
  * @return {Promise<void>}
  */
-const enforceSingleOpen = debounce(
-  /** @param {TabGroup} group */
-  async function (group) {
-    if (group.collapsed === false) {
-      try {
-        const allGroups = await chrome.tabGroups.query({windowId: group.windowId});
+async function enforceSingleOpen(group) {
+  if (group.collapsed === false) {
+    try {
+      const allGroups = await chrome.tabGroups.query({windowId: group.windowId});
 
-        await Promise.all(
-          allGroups
-            .filter(g => g.id !== group.id && !g.collapsed)
-            .map(g => chrome.tabGroups.update(g.id, {collapsed: true}))
-        );
+      await Promise.all(
+        allGroups
+          .filter(g => g.id !== group.id && !g.collapsed)
+          .map(g => chrome.tabGroups.update(g.id, {collapsed: true}))
+      );
 
-        const groupedTabs = await chrome.tabs.query({groupId: group.id});
-        await chrome.tabs.update(groupedTabs[0].id, {active: true});
-      } catch (err) {
-        console.log(err, "retrying...");
-        setTimeout(enforceSingleOpen.bind(this, group), 100);
-      }
+      const groupedTabs = await chrome.tabs.query({groupId: group.id});
+      await chrome.tabs.update(groupedTabs[0].id, {active: true});
+    } catch (err) {
+      console.log(err, "retrying...");
+      setTimeout(enforceSingleOpen.bind(this, group), 100);
     }
   }
-);
+}
 
 /**
  * Like-colored tab groups are adjacent
- * @function
  * @param {TabGroup} group
  * @return {Promise<void>}
  */
-const reorderGroups = resilientAsyncDebounceSkipper(
-  /** @param {TabGroup} group */
-  async function (group) {
-    const query = {windowId: group.windowId};
-    // Must also query tabs b/c tabGroups is sorted by open time, not position
-    const allTabs = await chrome.tabs.query(query);
-    const allGroups = await chrome.tabGroups.query(query);
-    const groupColors = new Map(allGroups.map(group => [group.id, group.color]));
-    const colorOrder = {};
-    const groupOrder = {};
-    let tailIdx = 0;
-    for (const tab of allTabs) {
-      const color = groupColors.get(tab.groupId);
-      if (!(color in colorOrder)) {
-        colorOrder[color] = tailIdx++;
-      }
-      if (!(tab.groupId in groupOrder)) {
-        groupOrder[tab.groupId] = tab.index;
-      }
+async function reorderGroups(group) {
+  const query = {windowId: group.windowId};
+  // Must also query tabs b/c tabGroups is sorted by open time, not position
+  const allTabs = await chrome.tabs.query(query);
+  const allGroups = await chrome.tabGroups.query(query);
+  const groupColors = new Map(allGroups.map(group => [group.id, group.color]));
+  const colorOrder = {};
+  const groupOrder = {};
+  let tailIdx = 0;
+  for (const tab of allTabs) {
+    const color = groupColors.get(tab.groupId);
+    if (!(color in colorOrder)) {
+      colorOrder[color] = tailIdx++;
     }
-
-    const sortedGroups = allGroups
-      .toSorted((a, b) => a.color === b.color ? groupOrder[a.id] - groupOrder[b.id] : colorOrder[a.color] - colorOrder[b.color]);
-
-    for (const group of sortedGroups) {
-      await chrome.tabGroups.move(group.id, {index: -1});
+    if (!(tab.groupId in groupOrder)) {
+      groupOrder[tab.groupId] = tab.index;
     }
-
-    await reorderTabs(undefined, group);
   }
-);
+
+  const sortedGroups = allGroups
+    .toSorted((a, b) => a.color === b.color ? groupOrder[a.id] - groupOrder[b.id] : colorOrder[a.color] - colorOrder[b.color]);
+
+  for (const group of sortedGroups) {
+    await chrome.tabGroups.move(group.id, {index: -1});
+  }
+
+  await reorderTabs(undefined, group);
+}
 
 /**
  * Ungrouped tabs are at the end
  * @param {number} _tabId
  * @param {Pick<TabMoveInfo, "windowId">} moveInfo
  */
-export const reorderTabs = resilientAsyncDebounceSkipper(async function(_tabId, moveInfo) {
+export async function reorderTabs(_tabId, moveInfo) {
   const ungroupedTabs = await chrome.tabs.query({
     windowId: moveInfo.windowId,
     groupId: chrome.tabGroups.TAB_GROUP_ID_NONE,
@@ -97,7 +89,6 @@ export const reorderTabs = resilientAsyncDebounceSkipper(async function(_tabId, 
     );
   }
 }
-);
 
 /**
  * Debounce, retry on failure, and skip every other call for async functions
@@ -130,7 +121,7 @@ function resilientAsyncDebounceSkipper(callback, timeout = 100) {
  * @param {number} timeout time in ms to delay
  * @return {(...args: [T]) => void} debounced function
  */
-function debounce(callback, timeout = 100) {
+function debounce(callback, timeout) {
   let timeoutRef = undefined;
 
   return async function(...args) {
@@ -146,9 +137,9 @@ function debounce(callback, timeout = 100) {
   }
 }
 
-chrome.tabGroups.onMoved.addListener(reorderGroups);
+chrome.tabGroups.onMoved.addListener(resilientAsyncDebounceSkipper(reorderGroups));
 
-chrome.tabs.onMoved.addListener(reorderTabs);
+chrome.tabs.onMoved.addListener(resilientAsyncDebounceSkipper(reorderTabs));
 
 chrome.tabGroups.onCreated.addListener(group => {
   enforceSingleOpen(group);
