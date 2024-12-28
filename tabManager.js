@@ -12,7 +12,7 @@ TODO:
 - when tab detached, should create group of same name
 */
 
-async function getCurrentTab() {
+export async function getCurrentTab() {
   // using windowId as opposed to currentWindow or lastFocusedWindow b/c the latter 2 ignore new tabs
   let queryOptions = {active: true, windowId: chrome.windows.WINDOW_ID_CURRENT};
   // `tab` will either be a `tabs.Tab` instance or `undefined`.

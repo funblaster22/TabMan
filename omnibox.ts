@@ -1,6 +1,7 @@
 import {COLORS} from "./constants.js";
 import {allProjects, closeProject, reopenProject} from "./bookmarkManager.js";
-import {availableColors} from "./tabGroupManager.js";
+import {availableColors, getCurrentGroup} from "./tabGroupManager.js";
+import {changeColor, changeEmoji, newProject, newTask} from "./projectManager.js";
 
 /*
 omnibox shortcuts
@@ -11,9 +12,9 @@ color <color>: change the color of this project
 emoji <emoji>: change the emoji of this project
 new <name> <emoji> <color?>: create a new project
 recov: (mapped to searching too) Opens the page with tabs and groups that have been auto-closed from the current project
+task <name>: create a new task in the current project from selected tabs
 
 TODO:
-task <name>: create a new task in the current project from selected tabs
 close <"right">: close all tabs to the right of the current tab w/i current project
 */
 
@@ -27,39 +28,48 @@ const enum CMD_TYP {
   OPTION = "option",
 }
 
-interface LiteralArg {
-  type: CMD_TYP.LITERAL | CMD_TYP.CMD,
+interface CommonArg {
+  name?: string,
+  optional?: boolean,
+  help?: string,
+}
+
+interface LiteralArg extends CommonArg {
+  type: CMD_TYP.LITERAL,
   value: string,
 }
 
-interface OptionArg {
+interface CommandArg extends CommonArg {
+  type: CMD_TYP.CMD,
+  value: string,
+  callback: (args: string[]) => void,
+  help: string,
+}
+
+interface OptionArg extends CommonArg {
   type: CMD_TYP.OPTION,
   value: readonly string[],
 }
 
-interface StringArg {
+interface StringArg extends CommonArg {
   type: CMD_TYP.STR,
   name: string,
   value?: never,
 }
 
-type CommandArg = (LiteralArg | OptionArg | StringArg) & {
-  name?: string,
-  optional?: boolean,
-  help?: string,
-  callback?: (args: string[]) => void,
-};
+type Arg = LiteralArg | OptionArg | StringArg | CommandArg;
 
-type Command = CommandArg[];
+type Command = [CommandArg, ...Arg[]];
 
 type ParsedCommand = ReturnType<typeof validateCommand>;
 
-const commands: CommandArg[][] = [
+const commands: Command[] = [
   [
     {
       type: CMD_TYP.CMD,
       value: "map",
       help: "automatically redirect this tab when visited in this project",
+      callback: () => {throw "not implemented"},
     },
     {
       type: CMD_TYP.STR,
@@ -90,7 +100,11 @@ const commands: CommandArg[][] = [
       type: CMD_TYP.CMD,
       value: "close",
       help: 'close this project',
-      callback: args => closeProject("blue", args[0] === "forever"),
+      callback: async args => {
+        const group = await getCurrentGroup();
+        if (!group) return;
+        return closeProject(group.color, args[0] === "forever");
+      },
     },
     {
       type: CMD_TYP.LITERAL,
@@ -104,6 +118,7 @@ const commands: CommandArg[][] = [
       type: CMD_TYP.CMD,
       value: "color",
       help: "change the color of this project",
+      callback: args => changeColor(args[0] as ColorEnum),
     },
     {
       type: CMD_TYP.OPTION,
@@ -116,6 +131,7 @@ const commands: CommandArg[][] = [
       type: CMD_TYP.CMD,
       value: "emoji",
       help: "change the emoji of this project",
+      callback: args => changeEmoji(args[0]),
     },
     {
       type: CMD_TYP.STR,
@@ -127,6 +143,7 @@ const commands: CommandArg[][] = [
       type: CMD_TYP.CMD,
       value: "new",
       help: "create a new project",
+      callback: args => newProject(...(args as [string, string, ColorEnum])),
     },
     {
       type: CMD_TYP.STR,
@@ -146,18 +163,31 @@ const commands: CommandArg[][] = [
   [
     {
       type: CMD_TYP.CMD,
+      value: "task",
+      help: "create a new task in current project from selected tabs",
+      callback: args => newTask(args[0]),
+    },
+    {
+      type: CMD_TYP.STR,
+      name: "name",
+    },
+  ],
+  [
+    {
+      type: CMD_TYP.CMD,
       value: "recov",
       help: "show tabs &amp; groups that have been closed in this project",
+      callback: () => {throw "not implemented"},
     },
   ],
 ];
 
 /**
- * TODO docs
- * @param command
- * @param text
+ * TODO summary
+ * @param command command to check against for validity and provide completions
+ * @param text user typed command to compare against
  * @param checkCompleteness if enabled, only mark as "valid" if all parameters filled
- * @return TODO fgh
+ * @return parsed command w/ suggestions, help text, validity, and the last correct index
  */
 function validateCommand(command: Command, text: string, checkCompleteness = false) {
   const result = {
@@ -185,7 +215,7 @@ function validateCommand(command: Command, text: string, checkCompleteness = fal
         if (cmdArg.optional) {
           result.suggestions = [cmdArg.value];
         }
-      // don't break
+      // eslint-disable-next-line no-fallthrough don't break
       case CMD_TYP.CMD:
         result.valid = isLast ? cmdArg.value.startsWith(userToken) : cmdArg.value === userToken;
         break;
@@ -212,8 +242,8 @@ function validateCommand(command: Command, text: string, checkCompleteness = fal
 
 /**
  * TODO docs
- * @param text
- * @param checkCompleteness
+ * @param text User-typed potentially partial command
+ * @param checkCompleteness if enabled, only mark as "valid" if all parameters filled
  * @return
  */
 function findBestCommands(text: string, checkCompleteness = false) {
@@ -274,6 +304,14 @@ chrome.omnibox.onInputChanged.addListener((text, suggest) => {
   }
   suggest(suggestions);
   console.log(text, bestCommands, suggestions);
+});
+
+chrome.omnibox.onInputEntered.addListener(text => {
+  const bestCommand = findBestCommands(text)[0];
+  debugger;
+  if (bestCommand.valid) {
+    bestCommand.command[0].callback(text.split(" ").slice(1));
+  }
 });
 
 chrome.omnibox.onInputStarted.addListener(() => {

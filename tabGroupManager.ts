@@ -1,8 +1,8 @@
 import {COLORS} from "./constants.js";
+import {getCurrentTab} from "./tabManager.js";
 
 /**
  * Returns an array of colors that are not currently in use by any tab group
- * @return {Promise<ColorEnum[]>}
  */
 export async function availableColors() {
   const groups = await chrome.tabGroups.query({});
@@ -10,47 +10,55 @@ export async function availableColors() {
   return COLORS.filter(color => !usedColors.has(color));
 }
 
+export type ProjectGroup = Awaited<ReturnType<typeof getCurrentGroup>>;
+
+export async function getCurrentGroup() {
+  const tab = await getCurrentTab();
+  if (tab.groupId === chrome.tabGroups.TAB_GROUP_ID_NONE)
+    return undefined;
+  const group = await chrome.tabGroups.get(tab.groupId);
+  const [emoji, ...name] = group.title!.split(" ");
+  return {
+    emoji,
+    name: name.join(" "),
+    ...group,
+  };
+}
+
 /**
  * Only one tab group can be open at a time
- * @param {TabGroup} group
- * @return {Promise<void>}
+ * @param group the group that was just changed (open or closed)
  */
-async function enforceSingleOpen(group) {
-  if (group.collapsed === false) {
-    try {
-      const allGroups = await chrome.tabGroups.query({windowId: group.windowId});
+async function enforceSingleOpen(group: TabGroup) {
+  if (!group.collapsed) {
+    const allGroups = await chrome.tabGroups.query({windowId: group.windowId});
 
-      await Promise.all(
-        allGroups
-          .filter(g => g.id !== group.id && !g.collapsed)
-          .map(g => chrome.tabGroups.update(g.id, {collapsed: true}))
-      );
+    await Promise.all(
+      allGroups
+        .filter(g => g.id !== group.id && !g.collapsed)
+        .map(g => chrome.tabGroups.update(g.id, {collapsed: true}))
+    );
 
-      const groupedTabs = await chrome.tabs.query({groupId: group.id});
-      await chrome.tabs.update(groupedTabs[0].id, {active: true});
-    } catch (err) {
-      console.log(err, "retrying...");
-      setTimeout(enforceSingleOpen.bind(this, group), 100);
-    }
+    const groupedTabs = await chrome.tabs.query({groupId: group.id});
+    await chrome.tabs.update(groupedTabs[0].id!, {active: true});
   }
 }
 
 /**
  * Like-colored tab groups are adjacent
- * @param {TabGroup} group
- * @return {Promise<void>}
+ * @param group tab group that was just moved
  */
-async function reorderGroups(group) {
+async function reorderGroups(group: TabGroup) {
   const query = {windowId: group.windowId};
   // Must also query tabs b/c tabGroups is sorted by open time, not position
   const allTabs = await chrome.tabs.query(query);
-  const allGroups = await chrome.tabGroups.query(query);
+  const allGroups = await chrome.tabGroups.query({});
   const groupColors = new Map(allGroups.map(group => [group.id, group.color]));
-  const colorOrder = {};
-  const groupOrder = {};
+  const colorOrder: Partial<Record<ColorEnum, number>> = {};
+  const groupOrder: Record<string, number> = {};
   let tailIdx = 0;
   for (const tab of allTabs) {
-    const color = groupColors.get(tab.groupId);
+    const color = groupColors.get(tab.groupId)!;
     if (!(color in colorOrder)) {
       colorOrder[color] = tailIdx++;
     }
@@ -60,7 +68,7 @@ async function reorderGroups(group) {
   }
 
   const sortedGroups = allGroups
-    .toSorted((a, b) => a.color === b.color ? groupOrder[a.id] - groupOrder[b.id] : colorOrder[a.color] - colorOrder[b.color]);
+    .toSorted((a, b) => a.color === b.color ? groupOrder[a.id] - groupOrder[b.id] : colorOrder[a.color]! - colorOrder[b.color]!);
 
   for (const group of sortedGroups) {
     await chrome.tabGroups.move(group.id, {index: -1});
@@ -71,10 +79,10 @@ async function reorderGroups(group) {
 
 /**
  * Ungrouped tabs are at the end
- * @param {number} _tabId
- * @param {Pick<TabMoveInfo, "windowId">} moveInfo
+ * @param _tabId unused
+ * @param  moveInfo contains the windowId of the moved tab
  */
-export async function reorderTabs(_tabId, moveInfo) {
+export async function reorderTabs(_tabId: unknown, moveInfo: Pick<TabMoveInfo, "windowId">) {
   const ungroupedTabs = await chrome.tabs.query({
     windowId: moveInfo.windowId,
     groupId: chrome.tabGroups.TAB_GROUP_ID_NONE,
@@ -84,7 +92,7 @@ export async function reorderTabs(_tabId, moveInfo) {
   if (ungroupedTabs.length > 0) {
     await Promise.all(
       ungroupedTabs.map((tab) =>
-        chrome.tabs.move(tab.id, {index: -1})
+        chrome.tabs.move(tab.id!, {index: -1})
       )
     );
   }
@@ -92,20 +100,17 @@ export async function reorderTabs(_tabId, moveInfo) {
 
 /**
  * Debounce, retry on failure, and skip every other call for async functions
- * @template {any[]} T
- * @param {(...args: T) => Promise<void>} callback function to call
- * @param {number} timeout time in ms for debouncing and for retries
- * @return {(...args: T) => void} callback with wrappers applied
+ * @param callback function to call
+ * @param timeout time in ms for debouncing and for retries
+ * @return callback with wrappers applied
  */
-function resilientAsyncDebounceSkipper(callback, timeout = 100) {
-  /** @type {number | undefined} */
-  let timeoutRef = undefined;
+function resilientAsyncDebounceSkipper<T extends any[]>(callback: (...args: T) => Promise<void>, timeout = 100) {
+  let timeoutRef: number | undefined = undefined;
   // Skip every other move event (1st user-triggered, 2nd programmatic fixing)
   // proper way would probably be to incr counter for expected ignorable move events, then decr on every event. Resume taking action once = 0
   let shouldSkip = false;
 
-  /** @param {T} args */
-  function wrappedFn(...args) {
+  function wrappedFn(...args: T) {
     if (timeoutRef) {
       clearTimeout(timeoutRef);
     }
