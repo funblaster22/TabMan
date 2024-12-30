@@ -18,13 +18,5 @@
   "background": {
     "service_worker": "background.js",
     "type": "module"
-  },
-  "commands": {
-    "new-tab": {
-      "suggested_key": {
-        "default": "Ctrl+T"
-      },
-      "description": "Open a new tab"
-    }
   }
 }

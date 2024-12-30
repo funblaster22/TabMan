@@ -10,19 +10,23 @@ export async function availableColors() {
   return COLORS.filter(color => !usedColors.has(color));
 }
 
-export type ProjectGroup = Awaited<ReturnType<typeof getCurrentGroup>>;
+export type ProjectGroup = (TabGroup & {emoji: string, name: string}) | undefined;
 
-export async function getCurrentGroup() {
-  const tab = await getCurrentTab();
-  if (tab.groupId === chrome.tabGroups.TAB_GROUP_ID_NONE)
+export async function getGroupInfo(groupId: number): Promise<ProjectGroup> {
+  if (groupId === chrome.tabGroups.TAB_GROUP_ID_NONE)
     return undefined;
-  const group = await chrome.tabGroups.get(tab.groupId);
+  const group = await chrome.tabGroups.get(groupId);
   const [emoji, ...name] = group.title!.split(" ");
   return {
     emoji,
     name: name.join(" "),
     ...group,
   };
+}
+
+export async function getCurrentGroup() {
+  const tab = await getCurrentTab();
+  return getGroupInfo(tab.groupId);
 }
 
 /**
