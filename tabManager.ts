@@ -108,23 +108,26 @@ chrome.tabs.onCreated.addListener(async (tab) => {
   console.log(newTabs.findIndex(tabCursor => tabCursor.id! === tab.id), newTabs);
   // Default to lastActive level
   let activeTab = await getLastTab();
+  const groupInfo = await getGroupInfo(activeTab.groupId);
   let nextTabLevel = getTabLevel(allTabs, activeTab);
   // Iterate over new tabs to find lowest level (stop at newly added tab)
   for (const newTab of newTabs) {
-    const newTabLevel = getTabLevel(allTabs, newTab);
+    if (newTab.id! === tab.id!) break;
+    let newTabLevel = getTabLevel(allTabs, newTab);
     if (newTabLevel === TAB_LEVEL.UNGROUPED) {
-      nextTabLevel++;
-    } else if (newTabLevel > nextTabLevel) {
+      // Change to expected level
+      newTabLevel = Math.min(nextTabLevel + 1, TAB_LEVEL.UNGROUPED);
+    }
+    if (newTabLevel > nextTabLevel) {
       nextTabLevel = newTabLevel;
       activeTab = newTab;
     }
-    if (newTab.id! === tab.id!) break;
   }
-  nextTabLevel = Math.min(nextTabLevel, TAB_LEVEL.UNGROUPED);
+  nextTabLevel = Math.min(nextTabLevel + 1, TAB_LEVEL.UNGROUPED);
   // Properly move tab
   await chrome.tabs.move(tab.id!, {index: activeTab.index + 1});
   // Properly group tab
-  console.log("nextTabLevel", nextTabLevel);
+  console.log("nextTabLevel", nextTabLevel, "activeTab", activeTab);
   switch (nextTabLevel) {
     case TAB_LEVEL.UNGROUPED:
       break;
@@ -134,12 +137,14 @@ chrome.tabs.onCreated.addListener(async (tab) => {
       await chrome.tabs.group({tabIds: tab.id, groupId: activeTab.groupId});
       break;
     case TAB_LEVEL.NEW_SOLO:
-      const groupInfo = (await getGroupInfo(activeTab.groupId))!;
       const newGroup = await chrome.tabs.group({tabIds: tab.id});
-      await chrome.tabGroups.update(newGroup, {title: groupInfo.emoji, color: groupInfo.color});
+      // groupInfo is defined b/c activeTab was originally a regular tab (member of group)
+      await chrome.tabGroups.update(newGroup, {title: groupInfo!.emoji, color: groupInfo!.color});
       // TODO: properly order. I fear `reorderTabs` will ruin order/potentially yield control in an invalid state
       break;
   }
   // Close tabs at higher levels
-  await Promise.all(newTabs.map(newTab => newTab.index < tab.index ? chrome.tabs.remove(newTab.id!) : Promise.resolve()));
+  await Promise.all(
+    newTabs.map(newTab => newTab.index < tab.index ? chrome.tabs.remove(newTab.id!) : Promise.resolve())
+  ).catch(() => {/* no-op */});
 });
