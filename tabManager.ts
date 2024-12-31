@@ -1,5 +1,5 @@
 import {NEWTAB_URL, TAB_LEVEL} from "./constants.js";
-import {getGroupInfo, reorderTabs} from "./tabGroupManager.js";
+import {getGroupInfo} from "./tabGroupManager.js";
 
 /*
 - Press control T once to create a new tab in the current task
@@ -24,58 +24,7 @@ export async function getCurrentTab() {
 const getLastTab = async () => {
   const storage = await chrome.storage.session.get("lastTab");
   return chrome.tabs.get(storage.lastTab);
-}
-
-/**
- * Returns the current tab, its group, and whether it is located in a new project, group, or loose.
- */
-async function tabState() {
-  const tab = await getCurrentTab();
-  let level;
-  const isUngrouped = tab.groupId === -1;
-  if (isUngrouped) {
-    level = TAB_LEVEL.UNGROUPED;
-  } else if ((tab.pendingUrl || tab.url) !== NEWTAB_URL) {
-    level = TAB_LEVEL.REGULAR;
-  } else {
-    const siblingCount = (await chrome.tabs.query({groupId: tab.groupId})).length;
-    level = siblingCount > 1 ? TAB_LEVEL.NEW : TAB_LEVEL.NEW_SOLO;
-  }
-  return {
-    tab,
-    group: isUngrouped ? undefined : await chrome.tabGroups.get(tab.groupId),
-    level,
-  };
-}
-
-chrome.commands?.onCommand?.addListener(async (command) => {
-  if (command !== "new-tab") return;
-
-  // TODO: would this be faster if I listen to new tab events?
-  const benchName = "new tab " + new Date().getMilliseconds();
-  console.time(benchName);
-
-  const state = await tabState();
-  if (state.level === TAB_LEVEL.UNGROUPED || state.level === TAB_LEVEL.REGULAR) {
-    state.tab = await chrome.tabs.create({url: NEWTAB_URL, index: state.tab.index + 1});
-  }
-  switch (state.level) {
-    case TAB_LEVEL.UNGROUPED:
-      break;
-    case TAB_LEVEL.REGULAR:
-      await chrome.tabs.group({tabIds: state.tab.id, groupId: state.group.id});
-      break;
-    case TAB_LEVEL.NEW:
-      const newGroup = await chrome.tabs.group({tabIds: state.tab.id});
-      await chrome.tabGroups.update(newGroup, {title: state.group.title, color: state.group.color});
-      break;
-    case TAB_LEVEL.NEW_SOLO:
-      await chrome.tabs.ungroup(state.tab.id);
-      await reorderTabs(undefined, state.tab);
-      break;
-  }
-  console.timeEnd(benchName);
-});
+};
 
 /** Closes all tabs in the given list. Ignores errors
  * @return void promise once all tabs closed */
