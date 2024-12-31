@@ -53,7 +53,6 @@ async function enforceSingleOpen(group: TabGroup) {
  * @param group tab group that was just moved
  */
 async function reorderGroups(group: TabGroup) {
-  return;
   const query = {windowId: group.windowId};
   // Must also query tabs b/c tabGroups is sorted by open time, not position
   const allTabs = await chrome.tabs.query(query);
