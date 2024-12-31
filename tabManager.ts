@@ -1,15 +1,15 @@
 import {NEWTAB_URL, TAB_LEVEL} from "./constants.js";
-import {getGroupInfo} from "./tabGroupManager.js";
+import {getGroupInfo, ProjectGroup} from "./tabGroupManager.js";
+import {resilientAsyncDebounceSkipper} from "./util.js";
 
 /*
 - Press control T once to create a new tab in the current task
 - Press control T twice to create a new task in the current project
 - Press control T thrice to make uncategorized tab
+- when tab detached, should create group of same name
 
 TODO:
-- Press in context of ungrouped tab to make new group
 - focus left tab when closed
-- when tab detached, should create group of same name
 */
 
 export async function getCurrentTab() {
@@ -106,4 +106,19 @@ chrome.tabs.onCreated.addListener(async (tab) => {
   await closeAllTabs(
     newTabs.filter(newTab => newTab.index < tab.index)
   );
+});
+
+const groupTabs = resilientAsyncDebounceSkipper(async (tabIds: number[] | number, groupInfo: ProjectGroup) => {
+  const newGroup = await chrome.tabs.group({tabIds});
+  await chrome.tabGroups.update(newGroup, {title: groupInfo!.emoji, color: groupInfo!.color});
+});
+
+chrome.tabs.onDetached.addListener(async (_tabId, {oldWindowId, oldPosition}) => {
+  const allTabs = await chrome.tabs.query({windowId: oldWindowId});
+  const tab = allTabs[oldPosition];
+  const leftTab = allTabs[oldPosition - 1];
+  // If tab is at start or end of group , cannot reliably determine membership
+  if (leftTab?.groupId !== tab.groupId) return;
+  const groupInfo = await getGroupInfo(tab.groupId);
+  groupTabs(tab.id!, groupInfo);
 });
