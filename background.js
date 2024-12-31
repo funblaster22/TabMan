@@ -10,3 +10,8 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   //  chrome.tabs.update(tabId, { url: "https://www.bing.com" });
   // }
 });
+
+chrome.commands.onCommand.addListener((command) => {
+  if (command !== "emergency-stop") return;
+  chrome.management.setEnabled(chrome.runtime.id, false);
+});

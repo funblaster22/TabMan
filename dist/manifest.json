@@ -12,11 +12,20 @@
     "notifications",
     "bookmarks",
     "storage",
+    "management",
     "system.display"
   ],
   "omnibox": { "keyword" : "l" },
   "background": {
     "service_worker": "background.js",
     "type": "module"
+  },
+  "commands": {
+    "emergency-stop": {
+      "suggested_key": {
+        "default": "Ctrl+K"
+      },
+      "description": "Disable the extension"
+    }
   }
 }
