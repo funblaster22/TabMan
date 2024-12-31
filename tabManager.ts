@@ -77,12 +77,22 @@ chrome.commands?.onCommand?.addListener(async (command) => {
   console.timeEnd(benchName);
 });
 
+/** Closes all tabs in the given list. Ignores errors
+ * @return void promise once all tabs closed */
+async function closeAllTabs(tabs: Tab[]) {
+  await Promise.all(
+    tabs.map(tab => chrome.tabs.remove(tab.id!).catch(() => {/* no-op */}))
+  );
+}
+
 // This will (always?) fire after onCreated
 chrome.tabs.onActivated.addListener(async ({tabId}) => {
   console.log("tab activated");
   const tab = await chrome.tabs.get(tabId);
   if ((tab.pendingUrl || tab.url) === NEWTAB_URL) return;
   await chrome.storage.session.set({lastTab: tab.id!});
+  // close all new tabs that are inactive
+  await closeAllTabs(await chrome.tabs.query({url: NEWTAB_URL, active: false}));
 });
 
 /**
@@ -144,7 +154,7 @@ chrome.tabs.onCreated.addListener(async (tab) => {
       break;
   }
   // Close tabs at higher levels
-  await Promise.all(
-    newTabs.map(newTab => newTab.index < tab.index ? chrome.tabs.remove(newTab.id!) : Promise.resolve())
-  ).catch(() => {/* no-op */});
+  await closeAllTabs(
+    newTabs.filter(newTab => newTab.index < tab.index)
+  );
 });
