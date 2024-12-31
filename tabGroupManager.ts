@@ -103,6 +103,10 @@ export async function reorderTabs(_tabId: unknown, moveInfo: Pick<TabMoveInfo, "
   }
 }
 
+// TODO: started shuffling groups when creating new split-screen window
+// TODO: relaunch caused groups to come undone
+
+/*
 chrome.tabGroups.onMoved.addListener(resilientAsyncDebounceSkipper(reorderGroups));
 
 chrome.tabs.onMoved.addListener(resilientAsyncDebounceSkipper(reorderTabs));
@@ -113,3 +117,4 @@ chrome.tabGroups.onCreated.addListener(group => {
 })
 
 chrome.tabGroups.onUpdated.addListener(resilientAsyncDebounceSkipper(enforceSingleOpen, 1000));
+*/
