@@ -34,7 +34,15 @@ async function closeAllTabs(tabs: Tab[]) {
   );
 }
 
-// This will (always?) fire after onCreated
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (changeInfo.url && changeInfo.url !== NEWTAB_URL && tab.active) {
+    // this may fire too often, but easiest solution to set new tabs to active once used
+    // don't want to do immediately b/c might be deleted and cause errors
+    await chrome.storage.session.set({lastTab: tabId});
+  }
+});
+
+// From testing, fires after onCreated
 chrome.tabs.onActivated.addListener(async ({tabId}) => {
   console.log("tab activated");
   const tab = await chrome.tabs.get(tabId);
