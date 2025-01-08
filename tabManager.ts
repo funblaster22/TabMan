@@ -121,12 +121,12 @@ const groupTabs = resilientAsyncDebounceSkipper(async (tabIds: number[] | number
   await chrome.tabGroups.update(newGroup, {title: groupInfo!.emoji, color: groupInfo!.color});
 });
 
-chrome.tabs.onDetached.addListener(async (_tabId, {oldWindowId, oldPosition}) => {
+chrome.tabs.onDetached.addListener(async (detachedTabId, {oldWindowId, oldPosition}) => {
   const allTabs = await chrome.tabs.query({windowId: oldWindowId});
-  const tab = allTabs[oldPosition];
+  const replacedTab = allTabs[oldPosition];
   const leftTab = allTabs[oldPosition - 1];
   // If tab is at start or end of group , cannot reliably determine membership
-  if (leftTab?.groupId !== tab.groupId) return;
-  const groupInfo = await getGroupInfo(tab.groupId);
-  groupTabs(tab.id!, groupInfo);
+  if (leftTab?.groupId !== replacedTab.groupId) return;
+  const groupInfo = await getGroupInfo(replacedTab.groupId);
+  groupTabs(detachedTabId, groupInfo);
 });
