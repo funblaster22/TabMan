@@ -4,17 +4,7 @@ import {availableColors, getCurrentGroup} from "./tabGroupManager.js";
 import {changeColor, changeEmoji, newProject, newTask} from "./projectManager.js";
 
 /*
-omnibox shortcuts
-Map <dst>: automatically redirect this tab when visited in this project, to <dst>. Will create a bookmark folder with title <src> linking to <dst>
-Open <project>: opens an archived project
-Close <"forever"?>: close this project and bookmarks all the tabs & tasks in nested folders. If "forever" included, will not make bookmarks
-color <color>: change the color of this project
-emoji <emoji>: change the emoji of this project
-new <name> <emoji> <color?>: create a new project
-recov: (mapped to searching too) Opens the page with tabs and groups that have been auto-closed from the current project
-task <name>: create a new task in the current project from selected tabs
-
-TODO:
+TODO: omnibox shortcuts
 close <"right">: close all tabs to the right of the current tab w/i current project
 */
 
