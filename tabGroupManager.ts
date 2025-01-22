@@ -57,29 +57,42 @@ async function reorderGroups(group: TabGroup) {
   const query = {windowId: group.windowId};
   // Must also query tabs b/c tabGroups is sorted by open time, not position
   const allTabs = await chrome.tabs.query(query);
-  const allGroups = await chrome.tabGroups.query({});
+  const allGroups = await chrome.tabGroups.query(query);
+  /** Maps group id to # of tabs in that group. Starts uninitialized. Must do this b/c Chrome cannot rearrange logically (1,2,3), must pass first tab new index */
+  const tabsInGroup = Object.fromEntries(allGroups.map(group => [group.id, 0]));
+  /** Lookup table for group color given group id */
   const groupColors = new Map(allGroups.map(group => [group.id, group.color]));
-  const colorOrder: Partial<Record<ColorEnum, number>> = {};
-  const groupOrder: Record<string, number> = {};
-  let tailIdx = 0;
+  /** Uninitialized, ordered set or colors as they appear left to right */
+  const colorOrder = new Set<ColorEnum>();
+  /** Uninitialized, maps color to group ids. Ex: {blue: [#1, #3], red: [#2]} */
+  const groupOrder = new Map(COLORS.map(color=> [color, new Set<number>()]));
+  /** Index to start inserting groups (must be initialized to first non-pinned tab) */
+  let insertionIndex = 0;
   for (const tab of allTabs) {
-    const color = groupColors.get(tab.groupId)!;
-    if (!(color in colorOrder)) {
-      colorOrder[color] = tailIdx++;
-    }
-    if (!(tab.groupId in groupOrder)) {
-      groupOrder[tab.groupId] = tab.index;
-    }
+    // Initialize first insertion index
+    if (tab.pinned) insertionIndex = tab.index + 1;
+
+    // track group size
+    tabsInGroup[tab.groupId]++;
+
+    // track color order
+    const color = groupColors.get(tab.groupId);
+    if (!color) continue;
+    colorOrder.add(color);
+
+    // Track group order within color
+    groupOrder.get(color)!.add(tab.groupId);
   }
 
-  const sortedGroups = allGroups
-    .toSorted((a, b) => a.color === b.color ? groupOrder[a.id] - groupOrder[b.id] : colorOrder[a.color]! - colorOrder[b.color]!);
-
-  for (const group of sortedGroups) {
-    await chrome.tabGroups.move(group.id, {index: -1});
+  // Commit reordering
+  for (const color of colorOrder) {
+    /** Groups in this color */
+    const groupIds = Array.from(groupOrder.get(color)!);
+    for (const groupId of groupIds) {
+      await chrome.tabGroups.move(groupId, {index: insertionIndex});
+      insertionIndex += tabsInGroup[groupId];
+    }
   }
-
-  await reorderTabs(undefined, group);
 }
 
 /**
