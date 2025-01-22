@@ -1,6 +1,6 @@
 import {COLORS} from "./constants.js";
 import {getCurrentTab} from "./tabManager.js";
-import {resilientAsyncDebounceSkipper} from "./util.js";
+import {debounce, resilientAsyncDebounceSkipper} from "./util.js";
 
 /**
  * Returns an array of colors that are not currently in use by any tab group
@@ -34,7 +34,7 @@ export async function getCurrentGroup() {
  * Only one tab group can be open at a time
  * @param group the group that was just changed (open or closed)
  */
-async function enforceSingleOpen(group: TabGroup) {
+const enforceSingleOpen = debounce(async (group: TabGroup) => {
   if (!group.collapsed) {
     const allGroups = await chrome.tabGroups.query({windowId: group.windowId});
 
@@ -47,7 +47,7 @@ async function enforceSingleOpen(group: TabGroup) {
     const groupedTabs = await chrome.tabs.query({groupId: group.id});
     await chrome.tabs.update(groupedTabs[0].id!, {active: true});
   }
-}
+});
 
 /**
  * Like-colored tab groups are adjacent
@@ -106,7 +106,6 @@ export async function reorderTabs(_tabId: unknown, moveInfo: Pick<TabMoveInfo, "
 // TODO: started shuffling groups when creating new split-screen window
 // TODO: relaunch caused groups to come undone
 
-/*
 chrome.tabGroups.onMoved.addListener(resilientAsyncDebounceSkipper(reorderGroups));
 
 chrome.tabs.onMoved.addListener(resilientAsyncDebounceSkipper(reorderTabs));
@@ -116,5 +115,4 @@ chrome.tabGroups.onCreated.addListener(group => {
   reorderGroups(group);
 })
 
-chrome.tabGroups.onUpdated.addListener(resilientAsyncDebounceSkipper(enforceSingleOpen, 1000));
-*/
+chrome.tabGroups.onUpdated.addListener(enforceSingleOpen);
