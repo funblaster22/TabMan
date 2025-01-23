@@ -66,7 +66,28 @@ function getTabLevel(allTabs: Tab[], target: Tab) {
   return TAB_LEVEL.NEW_SOLO;
 }
 
-chrome.tabs.onCreated.addListener(async (tab) => {
+/**
+ * Debounce factory. Allows the last invocation to run after `cooldown` ms of inactivity ONLY IF no new invocations are made OR the tab is a new tab
+ * @param fn function to debounce. Must be passed the opened tab
+ * @param cooldown ms to wait before calling the debounced function
+ */
+function debounceNewTab(fn: (tab: Tab) => void, cooldown = 100) {
+  let timeoutRef: number | undefined;
+  let timeoutInterrupted = false;
+
+  return (tab: Tab) => {
+    if (timeoutRef) timeoutInterrupted = true;
+    clearTimeout(timeoutRef);
+    timeoutRef = setTimeout(() => {
+      if (!timeoutInterrupted || tab.url === NEWTAB_URL || tab.pendingUrl === NEWTAB_URL)
+        fn(tab);
+      timeoutInterrupted = false;
+      timeoutRef = undefined;
+    }, cooldown);
+  };
+}
+
+const assignTabLevel = async (tab: Tab) => {
   // Get snapshot of all tabs in window
   // From testing, this always happens in order, may sometimes see the tab opened to the right of it
   const allTabs = await chrome.tabs.query({currentWindow: true});
@@ -114,7 +135,9 @@ chrome.tabs.onCreated.addListener(async (tab) => {
   await closeAllTabs(
     newTabs.filter(newTab => newTab.index < tab.index)
   );
-});
+};
+
+chrome.tabs.onCreated.addListener(debounceNewTab(assignTabLevel));
 
 const groupTabs = resilientAsyncDebounceSkipper(async (tabIds: number[] | number, groupInfo: ProjectGroup) => {
   const newGroup = await chrome.tabs.group({tabIds});
